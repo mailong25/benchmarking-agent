@@ -1,0 +1,639 @@
+get_compliance_info:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are an expert in EU AI Act compliance.
+
+    Step 1: Search the internet for the latest authoritative EU AI Act requirements related to AI systems.
+
+    Step 2: Review the following project description.
+
+    Step 3: Cross-reference the requirements and assess the project’s compliance obligations under the EU AI Act.
+
+    Specifically:
+    • Determine the applicable risk category (e.g., prohibited, high-risk, limited risk, minimal risk).
+    • Identify key compliance requirements that apply (e.g., data quality, record-keeping, transparency, human oversight, conformity assessment, CE marking, post-market monitoring).
+
+    Return a summary of the compliance obligations for the project based on your analysis.
+    Output format:
+    - Analysis: <step-by-step reasoning>
+    - Summary: <Summary of compliance obligations>
+
+    Project Description:
+    {{ project_description }}
+
+get_eligibility_info:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    **Role:** You are an AI compliance analyst specializing in the EU AI Act.
+
+    **Input:**
+    1. Project description
+    2. Applicable EU AI Act risk category and compliance obligations
+    3. Specified large language model (LLM)
+
+    **Task:**
+    Assess whether the specified LLM is advisable for use under the EU AI Act, based on publicly available information on the internet.
+
+    **Instructions:**
+    * Review public sources on the model, including:
+      * Model cards, system documentation, or whitepapers
+      * Transparency or governance disclosures
+      * Compliance commitments or certifications (if any)
+      * Known limitations relevant to EU AI Act requirements (e.g. data governance, traceability, explainability)
+    * Evaluate whether the available evidence reasonably supports compliance with the applicable EU AI Act obligations.
+    * Clearly identify uncertainties, assumptions, or missing information that may affect the assessment.
+    * Make sure you keep track of your sources of information.
+
+    **Output (JSON):**
+
+    ```json
+    {
+      "reasoning": "Step-by-step assessment referencing relevant EU AI Act considerations",
+      "advisable": "low | medium | high",
+      "sources": "List of URLs or references to public information used in the assessment"
+    }
+    ```
+
+    **Rating definitions:**
+
+    * **low**: High compliance risk or insufficient transparency
+    * **medium**: Partial alignment with notable gaps
+    * **high**: Strong documentation and governance signals
+    
+    ---- Here is the input information ----
+
+    Project Description:
+    {{ project_description }}
+
+    Compliance Requirements:
+    {{ compliance_requirements }}
+
+    Model name: {{ model_name }}
+
+get_litellm_models:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are a LiteLLM integration expert.
+
+    1. Consult the official LiteLLM documentation to determine the correct model identifiers accepted by the `completion()` function.
+    2. I will provide a list of informal or vendor-style model names.
+    3. Convert each one into the exact LiteLLM-compatible model identifier using the standard provider prefix format: provider/model_id. Examples of valid providers: openai, anthropic, gemini
+
+    Requirements:
+    - Only return models that exist and are supported by LiteLLM.
+    - Use the official LiteLLM model naming conventions exactly.
+    - Do not include explanations, comments, markdown, or extra text.
+    
+    # -------
+    Here is the list of models to convert:
+    {{ model_names }}
+
+    Output Format (Strict):
+    Return valid JSON only, matching this schema exactly:
+
+    {
+      "litellm_models": [
+        "provider/model_id"
+      ]
+    }
+
+get_benchmark_datasets:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    Role: You are a Senior AI Auditor and Technical Compliance Officer.
+
+    Task:
+    1. Analyze the provided Project Description and compliance requirements.
+    2. Identify existing publicly available benchmark datasets that can be used to evaluate different LLMs for the project. Use only representative datasets that are widely recognized and accepted in the AI research community.
+  
+    Project description:
+    {{ project_description }}
+
+    Compliance_requirements: 
+    {{ compliance_requirements }}
+
+    Output Requirement:
+    You must output the result strictly as a valid JSON object. Do not include any conversational filler, markdown code blocks (unless the JSON is inside), or introductory text. The domains should be dynamically determined based on your analysis.
+
+    JSON Format:
+    {
+      "benchmarks": [
+        {
+          "domain": "Determined Domain Name #1",
+          "datasets": [
+            {
+              "name": "Dataset/Benchmark Name",
+              "description": "Just generic dataset description, no need to mention relevancy to the project specifics"
+            }
+          ]
+        },
+        {
+          "domain": "Determined Domain Name #2",
+          "datasets": [
+            {
+              "name": "Dataset/Benchmark Name",
+              "description": "Just generic dataset description, no need to mention relevancy to the project specifics"
+            }
+          ]
+        }
+      ]
+    }
+
+get_hf_dataset_info:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    Search the Hugging Face Hub and determine the correct arguments for datasets.load_dataset for the below dataset:
+
+    Dataset name: {{ dataset_name }}
+    Dataset description: {{ task_description }}
+
+    Tasks:
+    - Identify the path string exactly as used in Hugging Face.
+    - If the dataset has multiple configurations, choose the default configuration; if none is marked, choose the most representative one; if no config is required, use None.
+    - Identify the default split (prefer "test"; if not available, choose the first listed split).
+
+    Return only a valid Python dictionary (no explanation) with keys exactly:
+    {"path": ..., "config": ..., "split": ...}
+
+    If the dataset does not exist or required info is missing, return None.
+
+assess_hf_dataset_code_safety:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    ### Task
+    You are a senior security engineer specializing in Python supply chain security. Your task is to audit the following Python code, which is a Hugging Face dataset loading script.
+
+    ### Code to Audit
+    ```python
+    {{code_content}}
+    ```
+
+    ### Audit Criteria
+    Analyze the code for potential security risks, including but not limited to:
+
+    1. **Network Activity**
+       - Outbound requests to non-Hugging Face domains
+       - Hardcoded IP addresses
+       - Data exfiltration attempts
+
+    2. **System Access**
+       - Reading sensitive local files (e.g., `/etc/passwd`, `~/.ssh`)
+       - Accessing environment variables unrelated to dataset loading
+
+    3. **Obfuscation or Dynamic Execution**
+       - `eval`, `exec`, `compile`
+       - Base64-encoded or encrypted payloads
+       - Deliberate variable or function name obfuscation
+
+    4. **Subprocess or Shell Execution**
+       - Use of `subprocess`, `os.system`, or shell invocation
+
+    5. **Persistence or Modification**
+       - Writing outside the dataset cache
+       - Modifying startup scripts or system configuration
+
+    6. Any other behavior that could reasonably compromise system security or user privacy.
+
+    ### Output Requirements
+    Respond using ONLY valid JSON with the following structure:
+
+    {
+      "reasoning": "<Brief explanation of detected issues or why the code appears safe>",
+      "trustworthy": <true if no significant security risks are detected, false otherwise>
+    }
+
+get_eval_guide:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are an expert in automatic evaluation design. You will be given a dataset description some representative example rows. Your job is to analyze the task and propose how to evaluate it automatically.
+
+    Dataset description:
+    {{ task_description }}
+
+    Examples:
+    {{ examples }}
+
+    Now answer these questions in order, providing reasoning for each.
+
+    1. Identify the input and prediction (model output) fields.
+       - Determine which column(s) contain the input (e.g., prompt, question, or user message).
+       - Determine what the expected output is—that is, what the AI model is intended to predict or generate.
+         + The expected output may not be explicitly present in the example fields. If that is the case, can you infer it from the dataset description and examples?
+         + If you not sure about the expected output, respond with None.
+
+    2. Is a reference (gold/standard) label present?
+      - If yes: which column?
+      - If no: explicitly state "none".
+
+    3. Characterize the range and nature of the prediction/output.
+      - Finite set of labels/classes? (list a few if possible)
+      - Structured (e.g., JSON, entities)?
+      - Open-ended text?
+      - Numeric (bounded/unbounded)?
+      - Code, math, etc.?
+      - Other ?
+
+    4. What is the primary task category?
+      - Choose one main category. For example: classification, regression, or other.
+
+    5. Should evaluation be reference-based or reference-free?
+      Reference Integrity: 
+        + Choose reference-based if high-quality, unambiguous gold labels are available. 
+        + Choose reference-free if labels are missing, subjective, or noisy.
+      Task Complexity: 
+        + Use reference-based for structured tasks with finite, "correct" answers (e.g., classification). 
+        + Use reference-free for open-ended generation (e.g., creative writing) where many valid outputs exist.
+      Metric Feasibility: 
+        + Use reference-based if the goal is objective matching (Exact Match, F1, Accuracy). 
+        + Use reference-free or hybrid methods if the goal is to assess nuance, such as fluency, reasoning, or relevance.
+    
+    6. Evaluation Methodology:
+      The evaluation strategy is determined by the task type and the nature of the available data. Note that you only have access to model output strings, no probability scores or logits available.
+
+      A. Reference-Based + Deterministic Metrics
+        + Use when outputs are structured or objective. This path is preferred when the prediction belongs to a finite set of labels or follows a rigid format where "correctness" is binary.
+        + Suitability: Best for tasks where a single "right" answer exists and formatting is predictable.
+        + Metric Selection: You must select one primary metric (e.g., Accuracy, F1-Score, or Exact Match).
+
+      B. Reference-Based + LLM-as-a-Judge Comparison
+        + Use when references exist but simple string matching is insufficient.
+        + Suitability: Best for tasks where classical deterministic metrics poorly capture the alignment between prediction and reference.
+        + Mechanism: Perform a pointwise scoring of the model output with the reference provided as the ground truth.
+      
+      C. Reference-Free LLM-as-a-Judge
+        + Use for open-ended generation without a gold-standard label. This path relies on the evaluator's internal knowledge and the specific constraints of the prompt.
+        + Suitability: Best for tasks where multiple valid responses exist or when no reference is available.
+        + Mechanism: Score a single output against explicit qualitative criteria or rubrics.
+      
+    Respond using ONLY valid JSON with the following structure:
+    {
+      "input_output_reasoning": "<detailed reasoning about the input and output for the task>",
+      "input_fields": <list of input column name(s)>,
+      "reference_field": <name of primary reference field or None>,
+      "output_nature": <description of output nature>,
+      "task_category": <main task category>,
+      "evaluation_type_reasoning": <detailed reasoning about the choice of reference-based or reference-free>,
+      "evaluation_method_reasoning": <detailed reasoning about the choice of evaluation methodology>,
+      "use_llm_as_judge": <true | false> wether using LLM-as-a-judge for evaluation is recommended
+    }
+
+    {% if prev_errors %}
+    Errors/Feedback from previous generation attempts:
+    {{ prev_errors }}
+    {% endif %}
+
+get_analysis_func:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are an expert in automatic evaluation design. You will be given a dataset description, loading script, representative example rows, and a evaluation guideline.
+
+    ------
+
+    Dataset description:
+    {{ task_description }}
+
+    Loading script:
+    {{ loading_script }}
+
+    Examples:
+    {{ examples }}
+
+    Evaluation guideline:
+    {{ eval_guide }}
+
+    ------
+
+    Review the section on the characterize the range and nature of the prediction/output.
+
+    Your task is to:
+    1. Determine whether evaluating this aspect requires dataset-level analysis or statistical computation.
+    2. Do NOT perform any analysis unless it is strictly necessary.
+    3. If analysis is required, generate a Python function that performs the necessary computations and returns a dictionary containing the analysis info.
+    4. Include the dataset loading script and all necessary `import` statements *inside* the function string. Use only standard Python libraries for your analysis.
+    5. Make the code simple and concise, avoiding unnecessary comments.
+
+    Respond using ONLY valid JSON with the following structure:
+    {
+      "reasoning": "<clear explanation of your decision>",
+      "function": "<python function if analysis decision is true, otherwise none>"
+    }
+
+    {% if prev_errors %}
+    Errors/Feedback from previous generation attempts:
+    {{ prev_errors }}
+    {% endif %}
+
+get_task_prompt:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    {% raw %}
+    You are an expert prompt engineer specializing in designing high-quality prompts for large language models on benchmark datasets. Your prompts must produce consistent, parsable, and evaluable outputs that align closely with reference answers.
+
+    You will be given:
+    - Dataset description: overall task and dataset overview
+    - Representative samples: sample inputs and reference outputs
+    - Evaluation guideline: criteria and method for scoring model outputs
+
+    First, carefully analyze all provided information to understand:
+    - The core task
+    - Input structure and key fields
+    - Desired output structure and style
+    - How outputs will be evaluated
+    - Patterns in reference outputs if available (use stats to guide length, format, etc.)
+
+    Then, design a prompt template that an LLM can use to generate high-quality outputs for new inputs from this dataset.
+
+    A good prompt template must:
+    - Clearly and concisely describe the task
+    - Specify exact input and output formats
+    - Enforce strict JSON output requirement with 'answer' key. 
+    - Include one example of expected JSON output with the only key being "answer".
+    - The template should be a single string that can be rendered with Jinja2. Assume there is a variable `sample` that contains all input fields for a single example.
+    - Use descriptive placeholders (e.g., {{ sample['question'] }}, {{ sample['passage'] }}, {{ sample['context'] }}) inferred from the dataset
+
+    Examples of effective prompt templates:
+
+    1. Simple direct task:
+      """
+      You are an expert translator. Translate the given English text to French. Output only the French translation, with no additional text.
+
+      English text:
+      {{ sample['text'] }}
+
+      Return your answer strictly in JSON format without any extra text:
+      Example:
+      {
+        "answer": "Je mange une pomme"
+      }
+      """
+    
+    2. Reasoning task:
+      """
+      Solve the following math problem step by step. Show all your work clearly.
+
+      Problem:
+      {{ sample['problem'] }}
+
+      Return your answer strictly in JSON format without any extra text:
+      Example:
+      {
+        "answer": "42"
+      }
+      """
+
+    Now create the best possible prompt template for the current dataset.
+    {% endraw %}
+
+    ------
+
+    Dataset description:
+    {{ task_description }}
+
+    Examples:
+    {{ examples }}
+
+    Evaluation guideline:
+    {{ eval_guide }}
+
+    ------
+
+    Respond using ONLY valid JSON with the following structure:
+    {
+      "prompt": "<the complete prompt template as a single string, including all instructions and placeholders>"
+    }
+
+    {% if prev_errors %}
+    Errors/Feedback from previous generation attempts:
+    {{ prev_errors }}
+    {% endif %}
+
+get_judge_prompt:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    {% raw %}
+    You are an expert prompt engineer specializing in evaluation frameworks for large language models.
+    Your task is to design a **Jinja2-compatible prompt template** that will be used by an **LLM-as-a-judge** to evaluate a model's prediction given structured input data.
+
+    ----------------------------------------------------------------
+    ## 1. Core Objective
+    Create a prompt template that instructs an evaluator model to:
+    - Assess the quality of a model-generated prediction.
+    - Apply a clearly defined evaluation criterion with a detailed score rubric.
+    - Produce a deterministic, machine-readable score, grounded in evidence from the input.
+
+    ## 2. Comparison Logic
+    - For **Reference-Based Evaluation**:
+      + The judge MUST compare the `prediction` against the reference field from the `sample` object.
+      + The judge MUST NOT consider any other input fields unless they provide essential context for the comparison.
+    - For **Reference-Free Evaluation**:
+      + The judge MUST evaluate the `prediction` based on input fields from the `sample` object (e.g., `context`, `input`, `question`).
+
+    ----------------------------------------------------------------
+    ## 2. Mandatory Requirements
+    The generated prompt template MUST:
+      1. Use **Jinja2 placeholders** from the `sample` object:
+        Use other placeholders like `{{ sample['context'] }}`, `{{ sample['input'] }}`, or `{{ sample['reference'] }}`  as needed.
+      2. Explicitly instruct the judge to:
+        - Return **ONLY valid JSON** with:
+          - `"reasoning"`: A string explanation (concise, evidence-based).
+          - `"score"`: A numeric value on the defined scale.
+    
+    ----------------------------------------------------------------
+    ## 3. Scoring Logic
+    - Use rubric-based scoring to evaluate how good the `prediction` is.
+    - Choose an appropriate scale based on the task (e.g., binary 0-1 for accuracy).
+    - Provide a specific rubric for each point on the scale (e.g., if 1-5, define what 1, 2, 3, 4, and 5 mean explicitly). **a detailed, evidence-based description for each score level**, including edge cases (e.g., partial matches, hallucinations).
+    - Higher scores must always indicate better performance.
+
+    ----------------------------------------------------------------
+    ## 4. Examples of High-Quality Prompt Templates
+
+    ### Example A — Semantic Similarity (Reference-Based 1-5)
+    "Rate the semantic similarity between the prediction and the reference.
+    Reference: {{ sample['reference'] }}
+    Prediction: {{ prediction }}
+    Score Rubric:
+    - 5: Perfectly matches the meaning, intent, and nuance of the reference.
+    - ...
+    - 1: Completely unrelated, contradictory, or hallucinated content.
+    Reason step-by-step, citing evidence. Return ONLY JSON: {\"reasoning\": \"...\", \"score\": 1-5}"
+
+    ### Example B — Classification Accuracy (Reference-Based 0-1)
+    "Determine if the predicted label matches the ground truth reference.
+    Reference: {{ sample['reference'] }}
+    Prediction: {{ prediction }}
+    Score Rubric:
+    - 1: Correct. The prediction exactly matches the reference (case-insensitive, ignoring whitespace/formatting).
+    - 0: Incorrect. The prediction differs, is invalid, or extraneous content affects the label.
+    Reason step-by-step, citing evidence. Return ONLY JSON: {\"reasoning\": \"...\", \"score\": 0 or 1}"
+
+    ### Example C — Factuality (Reference-Free 0-1)
+    "Evaluate if the prediction is factually consistent with the provided context.
+    Context: {{ sample['context'] }}
+    Prediction: {{ prediction }}
+    Score Rubric:
+    - 1: Fully consistent. All claims are directly supported or inferable from the context without additions.
+    - 0: Inconsistent. Contains unsupported claims, contradictions, or hallucinations (e.g., invented facts).
+    Reason step-by-step, citing evidence. Return ONLY JSON: {\"reasoning\": \"...\", \"score\": 0 or 1}"
+
+    ----------------------------------------------------------------
+    Here is the specific context for your prompt design:
+    {% endraw %}
+    Dataset description:
+    {{ task_description }}
+
+    Examples:
+    {{ examples }}
+
+    Evaluation guideline:
+    {{ eval_guide }}
+
+    ----------------------------------------------------------------
+    Respond using ONLY valid JSON with the following structure:
+    {
+      "metric_name": "The name of the evaluation metric as a string.",
+      "metric_score_min": "The minimum score on the defined scale (integer or float).",
+      "metric_score_max": "The maximum score on the defined scale (integer or float).",
+      "prompt": "The complete Jinja2-compatible evaluation prompt template as a single string."
+    }
+
+    {% if prev_errors %}
+    Errors/Feedback from previous generation attempts:
+    {{ prev_errors }}
+    {% endif %}
+
+get_metric_func:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are an expert Python Machine Learning Engineer specializing in NLP evaluation pipelines.
+    
+    ### Task
+    Write a Python function named `handler` that implements an evaluation logic based on the provided guidelines.
+    
+    ---------------------
+
+    ### Input Context
+    - **Dataset Description:**
+    {{ task_description }}
+
+    - **Examples:**
+    {{ examples }}
+
+    - **Evaluation Guideline:**
+    {{ eval_guide }}
+
+    - **Task Prompt Template:**
+    {{ task_prompt }}
+
+    ---------------------
+
+    ### Coding Requirements
+    1. **Function Signature:**
+       ```python
+       def handler(samples: list[dict], predictions: list[str]) -> tuple:
+           """
+           Compute evaluation metric based on the provided samples and model predictions.
+           Args:
+               samples: List of dicts containing input data and references (optional).
+               predictions: List of raw JSON string outputs from the AI model.
+           Returns:
+               A tuple containing:
+                aggregate_score (float): The overall aggregated metric score across all samples.
+                per_sample_scores (list[float]): The metric score for each individual sample.
+           """
+       ```
+    
+    2. **Processing Logic:**
+       - **JSON Parsing:** Each string in `predictions` is expected to be a JSON string like `{"answer": "..."}`. You must safely parse these. If a string is not valid JSON, treat that specific prediction as a failure (score 0 for that sample).
+       - **Normalization:** Perform necessary text normalization/transformation (lowercase, stripping whitespace)
+       - **Aggregator:** Calculate the final score (e.g., mean Accuracy, F1, etc.) across all samples.
+
+    3. **Constraints:**
+       - **Self-Contained:** Include all necessary imports (e.g., `import json`, `import numpy as np`) *inside* the function body.
+       - **Robustness:** Use `try/except Exception:` blocks to handle malformed inputs or parsing errors. Errors during the evaluation of a single sample should result in a 0 for that sample, not a crash of the entire function.
+       - **Libraries:** Prefer `sklearn`, `scipy`, `numpy`, or `evaluate` for standard metrics.
+    
+    ### Response Format
+    Return ONLY a JSON object. No markdown code blocks.
+    {
+      "metric_name": "string",
+      "metric_score_min": float,
+      "metric_score_max": float,
+      "function": "string (the complete python code)"
+    }
+
+    {% if prev_errors %}
+    Errors/Feedback from previous generation attempts:
+    {{ prev_errors }}
+    {% endif %}
+
+meta_observer:
+  model: gemini/gemini-3-pro-preview
+  prompt: |
+    You are an expert evaluation pipeline auditor with extensive experience in assessing AI model evaluation processes for reliability, validity, and fairness.
+
+    You will be given the full state of an evaluation pipeline run, including:
+    - Task description
+    - Evaluation guide produced by an LLM
+    - A task prompt template used to generate model answers
+    - An evaluator implementation (LLM judge or deterministic metrics)
+    - Evaluation report including sample predictions and individual scores
+
+    Your job:
+
+    1) Review the evaluation report and determine the overall verdict for the evaluation pipeline: "passed", "failed", or "inconclusive".
+      - "failed": The evaluation scores are seriously flawed, unreliable, and cannot be trusted due to systemic issues.
+      - "passed": The evaluation scores are reasonably reliable and can be trusted for decision-making.
+      - "inconclusive": The task description, inputs, or outputs are not clear enough to enable any trustworthy or informative evaluation. In such cases, no evaluation should be run at all.
+    
+    2) If the verdict is "failed", identify the single most critical step with serious flaws that renders the evaluation unreliable or invalid. Focus on the step that, if fixed, would most significantly improve trustworthiness. Do not select multiple steps.
+
+      Here is the evaluation pipeline and key aspects to check for each step:
+
+      - Step 1 (eval_guide): The LLM generates evaluation guidelines based on the task description.
+        - Does the choice of evaluation type (reference-based or reference-free) or method (deterministic metric or LLM judge) seriously undermine the evaluation's reliability or validity?
+        - If this is the primary flaw, provide a generic suggestion to fix it (e.g., recommend switching evaluation types or methods based on task suitability, without referencing specific samples).
+      
+      - Step 2 (prompt_template): The LLM creates a prompt template for the task based on the task description and evaluation guidelines.
+        - Is a poorly designed generation prompt template the main reason the evaluation scores are unreliable (e.g., leading to inconsistent or off-task model outputs)? Please ignore issues related to JSON parsing.
+        - If this is the primary flaw, provide a generic suggestion to fix it (e.g., guidelines for making prompts more precise or structured, without referencing specific samples).
+      
+      - Step 3 (evaluator): An evaluator is implemented, either as an LLM-as-a-judge with a prompt template or as a deterministic metric function.
+        - Is a poorly designed LLM-as-a-judge template or an incorrectly implemented deterministic metric the main reason the evaluation scores are unreliable?
+        - If this is the primary flaw, provide a generic suggestion to fix it (e.g., improving judge prompts for neutrality or fixing metric logic, without referencing specific samples).
+
+    Only select one failed step if the verdict is "failed". If the verdict is "passed" or "inconclusive", set failed_step to null and leave suggestion empty.
+
+    -----------------------------
+    INPUTS
+    Task description:
+    {{ task_description }}
+
+    -----------------------------
+    Step 1 (eval_guide)
+    Generated eval guide:
+    {{ eval_guide }}
+
+    -----------------------------
+    Step 2 (prompt_template)
+    Generated prompt template:
+    {{ task_prompt }}
+
+    -----------------------------
+    Step 3 (evaluator)
+    Evaluator spec:
+    {{ evaluator_spec }}
+
+    -----------------------------
+    Evaluation report:
+    {{ eval_report }}
+
+    -----------------------------
+
+    OUTPUT FORMAT
+    Return ONLY valid JSON with this exact schema:
+    {
+      "verdict": "failed" | "passed" | "inconclusive",
+      "failed_step": "eval_guide" | "prompt_template" | "evaluator" | null,
+      "suggestion": "suggestion for fixing the flaws. Suggestion should be generic and not specific to individual predictions or samples" |  null
+    }
